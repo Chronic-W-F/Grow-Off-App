@@ -1,3 +1,5 @@
+console.log('FIREBASE API KEY:', process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
+
 import React, { useState, useEffect } from 'react';
 import { auth } from '../firebase'; // Make sure the path is correct
 import {
