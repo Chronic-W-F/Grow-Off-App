@@ -1,4 +1,3 @@
-// pages/index.js
 import React, { useState, useEffect } from 'react';
 import { auth } from '../firebase';
 import {
@@ -24,13 +23,13 @@ export default function Home() {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setUser(user);
-        // Placeholder role; update with Firestore later
-        setRole('contestant');
+        setRole('contestant'); // This is a placeholder; real roles will come from Firestore
       } else {
         setUser(null);
         setRole('');
       }
     });
+
     return () => unsubscribe();
   }, []);
 
