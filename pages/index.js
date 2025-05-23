@@ -1,17 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
 import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
 } from 'firebase/auth';
-
-const roles = {
-  admin: 'admin',
-  judge: 'judge',
-  contestant: 'contestant',
-  tech: 'tech',
-};
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function Home() {
   const [email, setEmail] = useState('');
@@ -20,10 +14,21 @@ export default function Home() {
   const [role, setRole] = useState('');
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUser(user);
-        setRole('contestant'); // This is a placeholder; real roles will come from Firestore
+
+        // Fetch role from Firestore
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
+          setRole(userData.role || 'contestant');
+        } else {
+          // If no role doc exists, default to contestant
+          setRole('contestant');
+        }
       } else {
         setUser(null);
         setRole('');
@@ -33,73 +38,42 @@ export default function Home() {
     return () => unsubscribe();
   }, []);
 
-  const handleLogin = async () => {
+  const handleLogin = async (e) => {
+    e.preventDefault();
     try {
       await signInWithEmailAndPassword(auth, email, password);
-    } catch (error) {
-      alert(error.message);
+    } catch (err) {
+      console.error("Login error:", err.message);
     }
   };
 
   const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      alert(error.message);
-    }
+    await signOut(auth);
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <h1 className="text-3xl font-bold mb-4">Grow-Off App</h1>
-
+    <div>
       {!user ? (
-        <div className="space-y-4 max-w-md">
+        <form onSubmit={handleLogin}>
           <input
-            className="border p-2 w-full"
-            placeholder="Email"
             type="email"
+            placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
           <input
-            className="border p-2 w-full"
-            placeholder="Password"
             type="password"
+            placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          <button
-            onClick={handleLogin}
-            className="bg-green-600 text-white px-4 py-2 rounded"
-          >
-            Log In
-          </button>
-        </div>
+          <button type="submit">Login</button>
+        </form>
       ) : (
         <div>
-          <p className="mb-4">
-            Logged in as: <strong>{user.email}</strong> ({role})
-          </p>
-          <button
-            onClick={handleLogout}
-            className="bg-red-600 text-white px-4 py-2 rounded"
-          >
-            Log Out
-          </button>
-
-          {role === roles.contestant && (
-            <p className="mt-4">📸 Weekly log upload coming soon</p>
-          )}
-          {role === roles.judge && (
-            <p className="mt-4">🧑‍⚖️ End-of-competition scoring panel coming soon</p>
-          )}
-          {role === roles.admin && (
-            <p className="mt-4">⚙️ Admin dashboard coming soon</p>
-          )}
-          {role === roles.tech && (
-            <p className="mt-4">🛠️ Developer tools (hidden in production)</p>
-          )}
+          <p>Welcome, {user.email}</p>
+          <p>Role: {role}</p>
+          <button onClick={handleLogout}>Logout</button>
         </div>
       )}
     </div>
