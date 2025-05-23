@@ -17,16 +17,22 @@ export default function Home() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUser(user);
+        console.log("User logged in:", user.email, "UID:", user.uid);
 
-        // Fetch role from Firestore
-        const userRef = doc(db, 'users', user.uid);
-        const userSnap = await getDoc(userRef);
+        try {
+          const userRef = doc(db, 'users', user.uid);
+          const userSnap = await getDoc(userRef);
 
-        if (userSnap.exists()) {
-          const userData = userSnap.data();
-          setRole(userData.role || 'contestant');
-        } else {
-          // If no role doc exists, default to contestant
+          if (userSnap.exists()) {
+            const userData = userSnap.data();
+            console.log("Firestore role data:", userData);
+            setRole(userData.role || 'contestant');
+          } else {
+            console.log("No Firestore doc found — defaulting to contestant");
+            setRole('contestant');
+          }
+        } catch (err) {
+          console.error("Error fetching Firestore role:", err);
           setRole('contestant');
         }
       } else {
