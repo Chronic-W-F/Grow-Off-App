@@ -56,6 +56,7 @@ export default function Home() {
   const handleLogout = async () => {
     await signOut(auth);
   };
+console.log("🔥 Client-side component rendering!");
 
   return (
     <div style={{ padding: '2rem', fontFamily: 'Arial, sans-serif' }}>
