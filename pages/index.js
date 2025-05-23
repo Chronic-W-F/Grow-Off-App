@@ -58,7 +58,9 @@ export default function Home() {
   };
 
   return (
-    <div>
+    <div style={{ padding: '2rem', fontFamily: 'Arial, sans-serif' }}>
+      <h1>Grow-Off App</h1>
+
       {!user ? (
         <form onSubmit={handleLogin}>
           <input
@@ -66,20 +68,28 @@ export default function Home() {
             placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            required
           />
+          <br />
           <input
             type="password"
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            required
           />
-          <button type="submit">Login</button>
+          <br />
+          <button type="submit">Log In</button>
         </form>
       ) : (
         <div>
-          <p>Welcome, {user.email}</p>
-          <p>Role: {role}</p>
-          <button onClick={handleLogout}>Logout</button>
+          <p>Logged in as: <strong>{user.email}</strong> ({role || 'loading...'})</p>
+          <button onClick={handleLogout} style={{ background: 'red', color: 'white' }}>
+            Log Out
+          </button>
+          <div style={{ marginTop: '1rem' }}>
+            📸 Weekly log upload coming soon
+          </div>
         </div>
       )}
     </div>
