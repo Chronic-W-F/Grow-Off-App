@@ -1,3 +1,4 @@
+// pages/index.js
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../firebase';
 import {
@@ -17,23 +18,13 @@ export default function Home() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUser(user);
-        console.log("User logged in:", user.email, "UID:", user.uid);
-
-        try {
-          const userRef = doc(db, 'users', user.uid);
-          const userSnap = await getDoc(userRef);
-
-          if (userSnap.exists()) {
-            const userData = userSnap.data();
-            console.log("Firestore role data:", userData);
-            setRole(userData.role || 'contestant');
-          } else {
-            console.log("No Firestore doc found — defaulting to contestant");
-            setRole('contestant');
-          }
-        } catch (err) {
-          console.error("Error fetching Firestore role:", err);
-          setRole('contestant');
+        // Load role from Firestore
+        const roleDoc = await getDoc(doc(db, 'users', user.uid));
+        if (roleDoc.exists()) {
+          setRole(roleDoc.data().role);
+        } else {
+          console.warn('No role found in Firestore.');
+          setRole('');
         }
       } else {
         setUser(null);
@@ -44,54 +35,54 @@ export default function Home() {
     return () => unsubscribe();
   }, []);
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
+  const handleLogin = async () => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
     } catch (err) {
-      console.error("Login error:", err.message);
+      console.error('Login failed:', err.message);
     }
   };
 
-  const handleLogout = async () => {
-    await signOut(auth);
+  const handleLogout = () => {
+    signOut(auth);
   };
-console.log("🔥 Client-side component rendering!");
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'Arial, sans-serif' }}>
-      <h1>Grow-Off App</h1>
-
+    <div className="p-6 max-w-md mx-auto">
       {!user ? (
-        <form onSubmit={handleLogin}>
+        <>
+          <h1 className="text-xl mb-4">Grow-Off Login</h1>
           <input
-            type="email"
+            className="block w-full mb-2 p-2 border rounded"
             placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            required
           />
-          <br />
           <input
+            className="block w-full mb-4 p-2 border rounded"
             type="password"
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            required
           />
-          <br />
-          <button type="submit">Log In</button>
-        </form>
-      ) : (
-        <div>
-          <p>Logged in as: <strong>{user.email}</strong> ({role || 'loading...'})</p>
-          <button onClick={handleLogout} style={{ background: 'red', color: 'white' }}>
-            Log Out
+          <button
+            className="bg-blue-600 text-white px-4 py-2 rounded"
+            onClick={handleLogin}
+          >
+            Login
           </button>
-          <div style={{ marginTop: '1rem' }}>
-            📸 Weekly log upload coming soon
-          </div>
-        </div>
+        </>
+      ) : (
+        <>
+          <h1 className="text-xl mb-2">Welcome, {email}</h1>
+          <p className="mb-4">Role: <strong>{role || 'Loading...'}</strong></p>
+          <button
+            className="bg-red-600 text-white px-4 py-2 rounded"
+            onClick={handleLogout}
+          >
+            Logout
+          </button>
+        </>
       )}
     </div>
   );
