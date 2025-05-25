@@ -1,142 +1,109 @@
-// pages/index.js
+// pages/upload.js
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../firebase';
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-} from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 
-export default function Home() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+export default function UploadPage() {
   const [user, setUser] = useState(null);
-  const [role, setRole] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [isSignup, setIsSignup] = useState(false);
-  const [signupDisplayName, setSignupDisplayName] = useState('');
+  const [image, setImage] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadedUrl, setUploadedUrl] = useState('');
 
- useEffect(() => {
-  const unsubscribe = onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      setUser(user);
-
-      const userRef = doc(db, 'users', user.uid);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists()) {
-        const data = userSnap.data();
-        setRole(data?.role || '');
-        setDisplayName(data?.displayName || '');
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        setUser(firebaseUser);
       } else {
-        console.warn('User doc not found in Firestore.');
+        setUser(null);
       }
-    } else {
-      setUser(null);
-      setRole('');
-      setDisplayName('');
-    }
-  });
-
-  return () => unsubscribe();
-}, []);
-
-
-  const handleLogin = async () => {
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (err) {
-      console.error('Login failed:', err.message);
-      alert('Login failed. Check your credentials.');
-    }
-  };
-
- const handleSignup = async () => {
-  try {
-    const userCred = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCred.user;
-
-    const userRef = doc(db, 'users', user.uid);
-    await setDoc(userRef, {
-      role: 'contestant',
-      displayName: signupDisplayName || user.email.split('@')[0],
-      email: user.email,
-      joinedAt: new Date(),
-      active: true,
-      submittedWeeks: [],
     });
-  } catch (err) {
-    console.error('Signup failed:', err.message);
-    alert('Signup failed. Check email format and password (min 6 chars).');
-  }
-};
 
+    return () => unsubscribe();
+  }, []);
 
-  const handleLogout = () => {
-    signOut(auth);
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImage(file);
+    }
   };
+
+  const handleUpload = async () => {
+    if (!image || !user) return;
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append('image', image);
+
+    try {
+      const res = await fetch('https://api.imgur.com/3/image', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Client-ID 06c0369bbcd9097',
+        },
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        const imgUrl = data.data.link;
+        setUploadedUrl(imgUrl);
+
+        // Optional: save image URL to Firestore under user's doc
+        const userRef = doc(db, 'users', user.uid);
+        await updateDoc(userRef, {
+          uploadedImages: arrayUnion({
+            url: imgUrl,
+            uploadedAt: new Date().toISOString(),
+          }),
+        });
+      } else {
+        alert('Upload failed.');
+      }
+    } catch (err) {
+      console.error('Upload error:', err);
+      alert('Upload failed.');
+    }
+
+    setUploading(false);
+  };
+
+  if (!user) {
+    return (
+      <div className="p-6 text-center">
+        <p>Please log in to upload your photo.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 max-w-md mx-auto">
-      {!user ? (
-        <>
-          <h1 className="text-xl mb-4">{isSignup ? 'Sign Up' : 'Login'}</h1>
-          {isSignup && (
-          <input
-    className="block w-full mb-2 p-2 border rounded"
-    placeholder="Display Name"
-    value={signupDisplayName}
-    onChange={(e) => setSignupDisplayName(e.target.value)}
-  />
-)}
+    <div className="p-6 max-w-xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">Upload Weekly Photo</h1>
 
-          <input
-            className="block w-full mb-2 p-2 border rounded"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <input
-            className="block w-full mb-4 p-2 border rounded"
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+      <input
+        type="file"
+        accept="image/*"
+        className="mb-4"
+        onChange={handleFileChange}
+      />
 
-          <button
-            className="bg-blue-600 text-white px-4 py-2 rounded mb-2 w-full"
-            onClick={isSignup ? handleSignup : handleLogin}
-          >
-            {isSignup ? 'Create Account' : 'Login'}
-          </button>
+      <button
+        className="bg-blue-600 text-white px-4 py-2 rounded"
+        onClick={handleUpload}
+        disabled={uploading}
+      >
+        {uploading ? 'Uploading...' : 'Upload to Imgur'}
+      </button>
 
-          <p className="text-sm text-center">
-            {isSignup ? 'Already have an account?' : "Don't have an account?"}{' '}
-            <button
-              className="text-blue-600 underline"
-              onClick={() => setIsSignup(!isSignup)}
-            >
-              {isSignup ? 'Login here' : 'Sign up here'}
-            </button>
-          </p>
-        </>
-      ) : (
-        <>
-          <h1 className="text-xl mb-2">Welcome, {displayName || email}</h1>
-          <p className="mb-2">
-            Role: <strong>{role || 'Loading...'}</strong>
-          </p>
-          <p className="mb-4 text-sm text-gray-500">Email: {email}</p>
-          <button
-            className="bg-red-600 text-white px-4 py-2 rounded"
-            onClick={handleLogout}
-          >
-            Logout
-          </button>
-        </>
+      {uploadedUrl && (
+        <div className="mt-4">
+          <p className="mb-2">Uploaded Image:</p>
+          <a href={uploadedUrl} target="_blank" rel="noopener noreferrer">
+            <img src={uploadedUrl} alt="Uploaded" className="max-w-full rounded shadow" />
+          </a>
+        </div>
       )}
     </div>
   );
