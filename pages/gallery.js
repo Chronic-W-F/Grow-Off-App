@@ -136,16 +136,22 @@ export default function ContestantGallery() {
         })}
 
       {/* Fullscreen Viewer */}
-      {selectedWeek != null && selectedIndex != null && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center z-50"
-        >
-          <button
-            className="absolute top-4 right-4 text-white text-2xl"
-            onClick={closeViewer}
-          >
-            ✕
-          </button>
+      <div className="absolute top-4 right-4 flex items-center gap-2 text-white">
+  <button
+    onClick={closeViewer}
+    className="hover:text-gray-300 text-sm underline"
+  >
+    ← Back to Grow Log
+  </button>
+  <button
+    onClick={closeViewer}
+    className="text-2xl hover:text-red-400"
+    title="Close"
+  >
+    ✕
+  </button>
+</div>
+
 
           <div className="flex items-center justify-center gap-4 px-4 w-full">
             <button
