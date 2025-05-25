@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function ContestantGallery() {
   const [user, setUser] = useState(undefined);
@@ -135,23 +135,23 @@ export default function ContestantGallery() {
           );
         })}
 
-      {/* Fullscreen Viewer */}
-      <div className="absolute top-4 right-4 flex items-center gap-2 text-white">
-  <button
-    onClick={closeViewer}
-    className="hover:text-gray-300 text-sm underline"
-  >
-    ← Back to Grow Log
-  </button>
-  <button
-    onClick={closeViewer}
-    className="text-2xl hover:text-red-400"
-    title="Close"
-  >
-    ✕
-  </button>
-</div>
-
+      {selectedWeek != null && selectedIndex != null && (
+        <div className="fixed inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center z-50">
+          <div className="absolute top-4 right-4 flex items-center gap-2 text-white">
+            <button
+              onClick={closeViewer}
+              className="hover:text-gray-300 text-sm underline"
+            >
+              ← Back to Grow Log
+            </button>
+            <button
+              onClick={closeViewer}
+              className="text-2xl hover:text-red-400"
+              title="Close"
+            >
+              ✕
+            </button>
+          </div>
 
           <div className="flex items-center justify-center gap-4 px-4 w-full">
             <button
@@ -177,14 +177,11 @@ export default function ContestantGallery() {
             </button>
           </div>
 
-                    <p className="text-white text-sm mt-2">
+          <p className="text-white text-sm mt-2">
             Week {selectedWeek} – Image {selectedIndex + 1} of {imagesByWeek[selectedWeek].length}
           </p>
-        </div>  {/* closes modal */}
+        </div>
       )}
-    </div>  {/* closes outer wrapper div */}
+    </div>
   );
 }
-
-
-
