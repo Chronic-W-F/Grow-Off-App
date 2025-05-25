@@ -93,7 +93,20 @@ export default function UploadPage() {
 
   return (
     <div className="p-6 max-w-xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Upload Weekly Photo</h1>
+    return (
+  <div className="p-6 max-w-xl mx-auto">
+    <div className="mb-4">
+      <a
+        href="/"
+        className="text-blue-600 underline hover:text-blue-800 text-sm"
+      >
+        ← Back to Home
+      </a>
+    </div>
+
+    {/* rest of your upload/gallery content here */}
+
+     <h1 className="text-2xl font-bold mb-4">Upload Weekly Photo</h1>
 
       <label className="block mb-2 font-semibold">Week #</label>
       <select
