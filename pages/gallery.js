@@ -1,7 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  arrayRemove,
+} from 'firebase/firestore';
 
 export default function ContestantGallery() {
   const [user, setUser] = useState(undefined);
@@ -74,6 +79,40 @@ export default function ContestantGallery() {
     }
   };
 
+  const handleDelete = async (week, img) => {
+    const confirmed = confirm('Are you sure you want to delete this image? This cannot be undone.');
+    if (!confirmed) return;
+
+    const userRef = doc(db, 'users', user.uid);
+
+    try {
+      // 1. Remove from Firestore
+      await updateDoc(userRef, {
+        uploadedImages: arrayRemove(img),
+      });
+
+      // 2. Remove from Imgur
+      await fetch(`https://api.imgur.com/3/image/${img.deletehash}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: 'Client-ID 06c0369bbcd9097',
+        },
+      });
+
+      // 3. Refresh the view
+      const newImages = { ...imagesByWeek };
+      newImages[week] = newImages[week].filter((i) => i.url !== img.url);
+      setImagesByWeek(newImages);
+
+      if (selectedWeek === week && selectedIndex !== null) {
+        closeViewer();
+      }
+    } catch (err) {
+      console.error('Failed to delete image:', err);
+      alert('Something went wrong while deleting. Try again.');
+    }
+  };
+
   if (user === undefined) return <p className="p-6 text-center">Loading...</p>;
   if (!user) return <p className="p-6 text-center">Please log in to view your gallery.</p>;
 
@@ -121,13 +160,21 @@ export default function ContestantGallery() {
               {expandedWeeks[week] && (
                 <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 bg-white">
                   {images.map((img, i) => (
-                    <img
-                      key={i}
-                      src={img.url}
-                      alt={`Week ${week}`}
-                      className="rounded shadow cursor-pointer hover:scale-105 transition"
-                      onClick={() => openViewer(week, i)}
-                    />
+                    <div key={i} className="relative group">
+                      <img
+                        src={img.url}
+                        alt={`Week ${week}`}
+                        className="rounded shadow cursor-pointer hover:scale-105 transition"
+                        onClick={() => openViewer(week, i)}
+                      />
+                      <button
+                        onClick={() => handleDelete(week, img)}
+                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full px-2 py-1 text-xs opacity-0 group-hover:opacity-100 transition"
+                        title="Delete image"
+                      >
+                        🗑
+                      </button>
+                    </div>
                   ))}
                 </div>
               )}
