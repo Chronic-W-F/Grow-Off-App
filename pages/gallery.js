@@ -11,6 +11,7 @@ import {
 export default function ContestantGallery() {
   const [user, setUser] = useState(undefined);
   const [imagesByWeek, setImagesByWeek] = useState({});
+  const [growLogs, setGrowLogs] = useState({});
   const [expandedWeeks, setExpandedWeeks] = useState({});
   const [selectedWeek, setSelectedWeek] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(null);
@@ -35,6 +36,7 @@ export default function ContestantGallery() {
         }
 
         setImagesByWeek(grouped);
+        setGrowLogs(data.growLogs || {});
       }
     });
 
@@ -86,12 +88,10 @@ export default function ContestantGallery() {
     const userRef = doc(db, 'users', user.uid);
 
     try {
-      // 1. Remove from Firestore
       await updateDoc(userRef, {
         uploadedImages: arrayRemove(img),
       });
 
-      // 2. Remove from Imgur
       await fetch(`https://api.imgur.com/3/image/${img.deletehash}`, {
         method: 'DELETE',
         headers: {
@@ -99,7 +99,6 @@ export default function ContestantGallery() {
         },
       });
 
-      // 3. Refresh the view
       const newImages = { ...imagesByWeek };
       newImages[week] = newImages[week].filter((i) => i.url !== img.url);
       setImagesByWeek(newImages);
@@ -127,8 +126,24 @@ export default function ContestantGallery() {
         </a>
       </div>
 
-      <h1 className="text-2xl font-bold mb-6">My Grow Log</h1>
+      <h1 className="text-2xl font-bold mb-4">My Grow Log</h1>
 
+      {/* 📝 Grow Logs Summary Section */}
+      {Object.keys(growLogs).length > 0 && (
+        <div className="mb-8 bg-yellow-50 p-4 rounded border border-yellow-200">
+          <h2 className="text-lg font-semibold mb-2">📓 Weekly Grow Notes</h2>
+          {Object.keys(growLogs)
+            .sort((a, b) => Number(a) - Number(b))
+            .map((week) => (
+              <div key={week} className="mb-4">
+                <p className="font-semibold text-sm text-gray-600 mb-1">Week {week}</p>
+                <p className="text-gray-800 whitespace-pre-line">{growLogs[week]}</p>
+              </div>
+            ))}
+        </div>
+      )}
+
+      {/* 📁 Image Folders */}
       {Object.keys(imagesByWeek)
         .sort((a, b) => Number(a) - Number(b))
         .map((week) => {
