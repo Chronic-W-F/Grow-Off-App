@@ -34,6 +34,13 @@ export default function JudgeView() {
 
           const filtered = allUsers.filter((u) => u.role === 'contestant');
           setContestants(filtered);
+
+          // Initialize notes from existing judgeNotes
+          const initialNotes = {};
+          filtered.forEach((c) => {
+            initialNotes[c.uid] = { ...c.judgeNotes };
+          });
+          setNotes(initialNotes);
         } else {
           alert('Access denied. Judges and admins only.');
           router.push('/');
@@ -57,19 +64,12 @@ export default function JudgeView() {
     }));
   };
 
-  const toggleEdit = (uid, week, currentText = '') => {
+  const toggleEdit = (uid, week) => {
     setEditing((prev) => ({
       ...prev,
       [uid]: {
         ...(prev[uid] || {}),
         [week]: !prev[uid]?.[week],
-      },
-    }));
-    setNotes((prev) => ({
-      ...prev,
-      [uid]: {
-        ...(prev[uid] || {}),
-        [week]: currentText,
       },
     }));
   };
@@ -87,11 +87,11 @@ export default function JudgeView() {
   const saveNote = async (uid, week) => {
     const userRef = doc(db, 'users', uid);
     const weekKey = `judgeNotes.${week}`;
+    const updatedNote = notes[uid]?.[week] || '';
     try {
       await updateDoc(userRef, {
-        [weekKey]: notes[uid]?.[week] || '',
+        [weekKey]: updatedNote,
       });
-      alert(`Note saved for week ${week}`);
       setEditing((prev) => ({
         ...prev,
         [uid]: {
@@ -110,7 +110,7 @@ export default function JudgeView() {
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">👨‍⚖️ Judge View: All Contestants</h1>
+        <h1 className="text-2xl font-bold">👨‍⚖️ Judge Area</h1>
         <a href="/" className="text-blue-600 underline hover:text-blue-800 text-sm">
           ← Back to Home
         </a>
@@ -125,7 +125,7 @@ export default function JudgeView() {
             const week = (i + 1).toString();
             const entry = c.growLogs?.[week] || '';
             const weekImages = (c.uploadedImages || []).filter((img) => img.week === week);
-            const judgeNote = c.judgeNotes?.[week] || '';
+            const judgeNote = notes[c.uid]?.[week] || '';
 
             return (
               <div key={week} className="mb-6">
@@ -162,10 +162,10 @@ export default function JudgeView() {
                 {!editing[c.uid]?.[week] ? (
                   <div className="mb-2">
                     <p className="text-gray-600">
-                      <strong>Note:</strong> {judgeNote || <em className="text-gray-400">No note submitted.</em>}
+                      <strong>Note:</strong> {judgeNote ? judgeNote : <em className="text-gray-400">No note submitted.</em>}
                     </p>
                     <button
-                      onClick={() => toggleEdit(c.uid, week, judgeNote)}
+                      onClick={() => toggleEdit(c.uid, week)}
                       className="text-blue-600 underline text-sm mt-1"
                     >
                       ✏️ Edit Note
