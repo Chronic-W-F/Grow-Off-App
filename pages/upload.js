@@ -1,3 +1,12 @@
+<div className="mb-4">
+  <a
+    href="/"
+    className="text-blue-600 underline hover:text-blue-800"
+  >
+    ← Home
+  </a>
+</div>
+
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
