@@ -1,22 +1,18 @@
-// pages/upload.js
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 
 export default function UploadPage() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(undefined);
   const [image, setImage] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadedUrl, setUploadedUrl] = useState('');
+  const [week, setWeek] = useState(1);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        setUser(firebaseUser);
-      } else {
-        setUser(null);
-      }
+      setUser(firebaseUser || null);
     });
 
     return () => unsubscribe();
@@ -51,12 +47,12 @@ export default function UploadPage() {
         const imgUrl = data.data.link;
         setUploadedUrl(imgUrl);
 
-        // Optional: save image URL to Firestore under user's doc
         const userRef = doc(db, 'users', user.uid);
         await updateDoc(userRef, {
           uploadedImages: arrayUnion({
             url: imgUrl,
             uploadedAt: new Date().toISOString(),
+            week,
           }),
         });
       } else {
@@ -70,6 +66,14 @@ export default function UploadPage() {
     setUploading(false);
   };
 
+  if (user === undefined) {
+    return (
+      <div className="p-6 text-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <div className="p-6 text-center">
@@ -81,6 +85,19 @@ export default function UploadPage() {
   return (
     <div className="p-6 max-w-xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">Upload Weekly Photo</h1>
+
+      <label className="block mb-2 font-semibold">Week #</label>
+      <select
+        className="block mb-4 p-2 border rounded"
+        value={week}
+        onChange={(e) => setWeek(Number(e.target.value))}
+      >
+        {Array.from({ length: 12 }, (_, i) => (
+          <option key={i + 1} value={i + 1}>
+            Week {i + 1}
+          </option>
+        ))}
+      </select>
 
       <input
         type="file"
