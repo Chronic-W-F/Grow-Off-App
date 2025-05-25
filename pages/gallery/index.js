@@ -1,170 +1,212 @@
-// pages/index.js
-import React, { useState, useEffect } from 'react';
-import { auth, db } from '../../firebase';
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-} from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+// pages/gallery/index.js
 
-export default function Home() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+import React, { useEffect, useState } from 'react';
+import { auth, db } from '../../firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+
+export default function GalleryPage() {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [isSignup, setIsSignup] = useState(false);
-  const [signupDisplayName, setSignupDisplayName] = useState('');
+  const [images, setImages] = useState([]);
+  const [logText, setLogText] = useState('');
+  const [selectedWeek, setSelectedWeek] = useState('1');
+  const [growLogs, setGrowLogs] = useState({});
+  const [expanded, setExpanded] = useState({});
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setUser(user);
-
-        const userRef = doc(db, 'users', user.uid);
-        const userSnap = await getDoc(userRef);
-
-        if (!userSnap.exists()) {
-          await setDoc(userRef, {
-            role: 'contestant',
-            displayName: signupDisplayName || user.email.split('@')[0],
-            email: user.email,
-            joinedAt: new Date(),
-            active: true,
-            submittedWeeks: [],
-          });
-        }
-
-        const freshSnap = await getDoc(userRef);
-        const data = freshSnap.data();
-
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        setUser(firebaseUser);
+        const userRef = doc(db, 'users', firebaseUser.uid);
+        const snap = await getDoc(userRef);
+        const data = snap.data();
         setRole(data?.role || '');
-        setDisplayName(data?.displayName || '');
+        setImages(data?.uploadedImages || []);
+        setGrowLogs(data?.growLogs || {});
       } else {
         setUser(null);
-        setRole('');
-        setDisplayName('');
       }
     });
-
     return () => unsubscribe();
   }, []);
 
-  const handleLogin = async () => {
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    const formData = new FormData();
+    formData.append('image', file);
+
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const res = await fetch('https://api.imgur.com/3/image', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Client-ID 06c0369bbcd9097',
+        },
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        const imgUrl = data.data.link;
+        const deletehash = data.data.deletehash;
+
+        const userRef = doc(db, 'users', user.uid);
+        await updateDoc(userRef, {
+          uploadedImages: arrayUnion({
+            url: imgUrl,
+            deletehash,
+            week: selectedWeek,
+            uploadedAt: new Date().toISOString(),
+          }),
+        });
+        alert('Image uploaded');
+        window.location.reload();
+      } else {
+        alert('Upload failed.');
+      }
     } catch (err) {
-      console.error('Login failed:', err.message);
-      alert('Login failed. Check your credentials.');
+      console.error(err);
+      alert('Upload error.');
     }
   };
 
-  const handleSignup = async () => {
+  const handleDelete = async (imgObj) => {
+    const confirmDelete = confirm('Delete this image?');
+    if (!confirmDelete || !user) return;
+
     try {
-      const userCred = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCred.user;
+      await fetch(`https://api.imgur.com/3/image/${imgObj.deletehash}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: 'Client-ID 06c0369bbcd9097',
+        },
+      });
 
       const userRef = doc(db, 'users', user.uid);
-      await setDoc(userRef, {
-        role: 'contestant',
-        displayName: signupDisplayName || user.email.split('@')[0],
-        email: user.email,
-        joinedAt: new Date(),
-        active: true,
-        submittedWeeks: [],
+      await updateDoc(userRef, {
+        uploadedImages: arrayRemove(imgObj),
       });
+      alert('Image deleted');
+      window.location.reload();
     } catch (err) {
-      console.error('Signup failed:', err.message);
-      alert('Signup failed. Check email format and password (min 6 chars).');
+      console.error(err);
+      alert('Delete failed');
     }
   };
 
-  const handleLogout = () => {
-    signOut(auth);
+  const handleSaveLog = async () => {
+    if (!user) return;
+    const userRef = doc(db, 'users', user.uid);
+    const updated = { ...growLogs, [selectedWeek]: logText };
+    await updateDoc(userRef, {
+      growLogs: updated,
+    });
+    alert('Grow log saved');
+    setGrowLogs(updated);
+    setLogText('');
   };
 
+  const toggleExpanded = (week) => {
+    setExpanded((prev) => ({
+      ...prev,
+      [week]: !prev[week],
+    }));
+  };
+
+  if (!user || role !== 'contestant') {
+    return <p className="p-6 text-center">Access denied.</p>;
+  }
+
   return (
-    <div className="p-6 max-w-md mx-auto">
-      {!user ? (
-        <>
-          <h1 className="text-xl mb-4">{isSignup ? 'Sign Up' : 'Login'}</h1>
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">📤 Upload & Grow Log</h1>
+        <a href="/" className="text-blue-600 underline hover:text-blue-800 text-sm">
+          ← Back to Home
+        </a>
+      </div>
 
-          {isSignup && (
-            <input
-              className="block w-full mb-2 p-2 border rounded"
-              placeholder="Display Name"
-              value={signupDisplayName}
-              onChange={(e) => setSignupDisplayName(e.target.value)}
-            />
-          )}
+      <div className="mb-6">
+        <label className="block mb-1 font-medium">Select Week</label>
+        <select
+          className="border p-2 rounded mb-4 w-full max-w-xs"
+          value={selectedWeek}
+          onChange={(e) => setSelectedWeek(e.target.value)}
+        >
+          {[...Array(12)].map((_, i) => (
+            <option key={i} value={i + 1}>{`Week ${i + 1}`}</option>
+          ))}
+        </select>
 
-          <input
-            className="block w-full mb-2 p-2 border rounded"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <input
-            className="block w-full mb-4 p-2 border rounded"
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+        <input
+          type="file"
+          accept="image/*"
+          className="mb-2"
+          onChange={handleUpload}
+        />
 
-          <button
-            className="bg-blue-600 text-white px-4 py-2 rounded mb-2 w-full"
-            onClick={isSignup ? handleSignup : handleLogin}
-          >
-            {isSignup ? 'Create Account' : 'Login'}
-          </button>
+        <textarea
+          className="w-full p-2 border rounded mb-2"
+          placeholder="Write your grow log post for this week..."
+          rows={4}
+          value={logText}
+          onChange={(e) => setLogText(e.target.value)}
+        />
 
-          <p className="text-sm text-center">
-            {isSignup ? 'Already have an account?' : "Don't have an account?"}{' '}
-            <button
-              className="text-blue-600 underline"
-              onClick={() => setIsSignup(!isSignup)}
-            >
-              {isSignup ? 'Login here' : 'Sign up here'}
-            </button>
-          </p>
-        </>
-      ) : (
-        <>
-          <h1 className="text-xl mb-2">Welcome, {displayName || email}</h1>
-          <p className="mb-2">
-            Role: <strong>{role || 'Loading...'}</strong>
-          </p>
-          <p className="mb-4 text-sm text-gray-500">Email: {email}</p>
+        <button
+          onClick={handleSaveLog}
+          className="bg-green-600 text-white px-4 py-2 rounded"
+        >
+          💾 Save Grow Log
+        </button>
+      </div>
 
-          {role === 'contestant' && (
-            <a
-              href="/gallery"
-              className="bg-green-600 text-white px-4 py-2 rounded mr-2 inline-block"
-            >
-              📤 Upload Photo
-            </a>
-          )}
+      {[...Array(12)].map((_, i) => {
+        const week = (i + 1).toString();
+        const weekImages = images.filter((img) => img.week === week);
+        const post = growLogs?.[week] || '';
 
-          {(role === 'judge' || role === 'admin') && (
-            <a
-              href="/gallery/judge"
-              className="bg-purple-600 text-white px-4 py-2 rounded mr-2 inline-block"
-            >
-              🧑‍⚖️ Judge Area
-            </a>
-          )}
+        return (
+          <div key={week} className="mb-6">
+            <p className="font-semibold text-lg mb-1 text-gray-700">Week {week}</p>
+            <p className="whitespace-pre-line text-gray-800 mb-2 min-h-[2rem]">
+              {post || <span className="italic text-gray-400">No log submitted.</span>}
+            </p>
 
-          <button
-            className="bg-red-600 text-white px-4 py-2 rounded"
-            onClick={handleLogout}
-          >
-            Logout
-          </button>
-        </>
-      )}
+            {weekImages.length > 0 && (
+              <div className="mb-2">
+                <button
+                  className="text-blue-600 underline mb-2"
+                  onClick={() => toggleExpanded(week)}
+                >
+                  {expanded[week] ? 'Hide Photos' : 'Show Photos'}
+                </button>
+
+                {expanded[week] && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {weekImages.map((img, i) => (
+                      <div key={i} className="relative">
+                        <img
+                          src={img.url}
+                          alt={`Week ${img.week}`}
+                          className="rounded shadow"
+                        />
+                        <button
+                          className="absolute top-1 right-1 bg-red-600 text-white text-xs px-2 py-0.5 rounded"
+                          onClick={() => handleDelete(img)}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
