@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 
 export default function UploadPage() {
   const [user, setUser] = useState(null);
@@ -9,11 +9,21 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadedUrl, setUploadedUrl] = useState('');
   const [week, setWeek] = useState(1);
+  const [growLog, setGrowLog] = useState('');
+  const [editingLog, setEditingLog] = useState(false);
+  const [logSaved, setLogSaved] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser);
+        const userRef = doc(db, 'users', firebaseUser.uid);
+        const userSnap = await getDoc(userRef);
+
+        if (userSnap.exists()) {
+          const logs = userSnap.data().growLogs || {};
+          setGrowLog(logs[week] || '');
+        }
       } else {
         setUser(null);
       }
@@ -21,6 +31,21 @@ export default function UploadPage() {
 
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    const loadLogForWeek = async () => {
+      if (user) {
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+
+        if (userSnap.exists()) {
+          const logs = userSnap.data().growLogs || {};
+          setGrowLog(logs[week] || '');
+        }
+      }
+    };
+    loadLogForWeek();
+  }, [week]);
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -40,7 +65,7 @@ export default function UploadPage() {
       const res = await fetch('https://api.imgur.com/3/image', {
         method: 'POST',
         headers: {
-          Authorization: 'Client-ID 06c0369bbcd9097', // Replace with your Client-ID if needed
+          Authorization: 'Client-ID 06c0369bbcd9097',
         },
         body: formData,
       });
@@ -70,6 +95,23 @@ export default function UploadPage() {
     }
 
     setUploading(false);
+  };
+
+  const handleSaveLog = async () => {
+    if (!user) return;
+
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        [`growLogs.${week}`]: growLog,
+      });
+      setEditingLog(false);
+      setLogSaved(true);
+      setTimeout(() => setLogSaved(false), 2000);
+    } catch (err) {
+      console.error('Error saving grow log:', err);
+      alert('Could not save grow log.');
+    }
   };
 
   if (user === undefined) {
@@ -113,6 +155,36 @@ export default function UploadPage() {
           </option>
         ))}
       </select>
+
+      <label className="block mb-2 font-semibold">Grow Log</label>
+      <textarea
+        className="w-full border p-2 rounded mb-2"
+        rows={6}
+        value={growLog}
+        onChange={(e) => setGrowLog(e.target.value)}
+        disabled={!editingLog}
+        placeholder="Write something about your grow this week..."
+      />
+
+      {!editingLog ? (
+        <button
+          className="bg-yellow-500 text-white px-4 py-2 rounded mb-4"
+          onClick={() => setEditingLog(true)}
+        >
+          ✏️ Edit Grow Log
+        </button>
+      ) : (
+        <button
+          className="bg-green-600 text-white px-4 py-2 rounded mb-4"
+          onClick={handleSaveLog}
+        >
+          💾 Save Grow Log
+        </button>
+      )}
+
+      {logSaved && (
+        <p className="text-green-600 text-sm mb-2">Grow log saved!</p>
+      )}
 
       <input
         type="file"
