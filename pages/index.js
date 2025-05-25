@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../firebase';
 import {
+  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
@@ -14,6 +15,7 @@ export default function Home() {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [isSignup, setIsSignup] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -24,7 +26,6 @@ export default function Home() {
         const userSnap = await getDoc(userRef);
 
         if (!userSnap.exists()) {
-          // First time login — create Firestore doc
           await setDoc(userRef, {
             role: 'contestant',
             displayName: user.email.split('@')[0],
@@ -55,6 +56,17 @@ export default function Home() {
       await signInWithEmailAndPassword(auth, email, password);
     } catch (err) {
       console.error('Login failed:', err.message);
+      alert('Login failed. Check your credentials.');
+    }
+  };
+
+  const handleSignup = async () => {
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      // Firestore doc will be auto-created in useEffect
+    } catch (err) {
+      console.error('Signup failed:', err.message);
+      alert('Signup failed. Check email format and password (min 6 chars).');
     }
   };
 
@@ -66,7 +78,7 @@ export default function Home() {
     <div className="p-6 max-w-md mx-auto">
       {!user ? (
         <>
-          <h1 className="text-xl mb-4">Grow-Off Login</h1>
+          <h1 className="text-xl mb-4">{isSignup ? 'Sign Up' : 'Login'}</h1>
           <input
             className="block w-full mb-2 p-2 border rounded"
             placeholder="Email"
@@ -80,17 +92,30 @@ export default function Home() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+
           <button
-            className="bg-blue-600 text-white px-4 py-2 rounded"
-            onClick={handleLogin}
+            className="bg-blue-600 text-white px-4 py-2 rounded mb-2 w-full"
+            onClick={isSignup ? handleSignup : handleLogin}
           >
-            Login
+            {isSignup ? 'Create Account' : 'Login'}
           </button>
+
+          <p className="text-sm text-center">
+            {isSignup ? 'Already have an account?' : "Don't have an account?"}{' '}
+            <button
+              className="text-blue-600 underline"
+              onClick={() => setIsSignup(!isSignup)}
+            >
+              {isSignup ? 'Login here' : 'Sign up here'}
+            </button>
+          </p>
         </>
       ) : (
         <>
           <h1 className="text-xl mb-2">Welcome, {displayName || email}</h1>
-          <p className="mb-2">Role: <strong>{role || 'Loading...'}</strong></p>
+          <p className="mb-2">
+            Role: <strong>{role || 'Loading...'}</strong>
+          </p>
           <p className="mb-4 text-sm text-gray-500">Email: {email}</p>
           <button
             className="bg-red-600 text-white px-4 py-2 rounded"
