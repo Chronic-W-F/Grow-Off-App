@@ -92,8 +92,6 @@ export default function UploadPage() {
   }
 
   return (
-    <div className="p-6 max-w-xl mx-auto">
-    return (
   <div className="p-6 max-w-xl mx-auto">
     <div className="mb-4">
       <a
