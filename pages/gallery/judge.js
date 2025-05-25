@@ -1,30 +1,44 @@
 // pages/gallery/judge.js
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
 import { auth, db } from '../../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, getDoc } from 'firebase/firestore';
 
 export default function JudgeView() {
   const [user, setUser] = useState(null);
+  const [role, setRole] = useState('');
   const [contestants, setContestants] = useState([]);
   const [notes, setNotes] = useState({});
+  const router = useRouter();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
+        const userRef = doc(db, 'users', currentUser.uid);
+        const userSnap = await getDoc(userRef);
+        const userData = userSnap.data();
+        const userRole = userData?.role || '';
+        setRole(userRole);
 
-        const snapshot = await getDocs(collection(db, 'users'));
-        const allUsers = snapshot.docs.map((docSnap) => ({
-          uid: docSnap.id,
-          ...docSnap.data(),
-        }));
+        if (userRole === 'judge' || userRole === 'admin') {
+          const snapshot = await getDocs(collection(db, 'users'));
+          const allUsers = snapshot.docs.map((docSnap) => ({
+            uid: docSnap.id,
+            ...docSnap.data(),
+          }));
 
-        const filtered = allUsers.filter((u) => u.role === 'contestant');
-        setContestants(filtered);
+          const filtered = allUsers.filter((u) => u.role === 'contestant');
+          setContestants(filtered);
+        } else {
+          alert('Access denied. Judges and admins only.');
+          router.push('/');
+        }
       } else {
         setUser(null);
+        router.push('/');
       }
     });
 
@@ -55,7 +69,7 @@ export default function JudgeView() {
     }
   };
 
-  if (!user) return <p className="p-6 text-center">Please log in as a judge.</p>;
+  if (!user || (role !== 'judge' && role !== 'admin')) return null;
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto">
