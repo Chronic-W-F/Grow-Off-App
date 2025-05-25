@@ -84,12 +84,12 @@ export default function JudgeView() {
             <h3 className="font-semibold mb-2">🌱 Grow Log Entries:</h3>
             {[...Array(12)].map((_, i) => {
               const week = (i + 1).toString();
-              const entry = c.growLogs?.[week] || '';
+              const entry = c.growLogs && typeof c.growLogs === 'object' ? c.growLogs[week] : '';
               return (
                 <div key={week} className="mb-4">
                   <p className="font-semibold text-sm text-gray-600 mb-1">Week {week}</p>
                   <p className="whitespace-pre-line text-gray-800 mb-2 min-h-[2rem]">
-                    {entry || <span className="italic text-gray-400">No log submitted.</span>}
+                    {entry ? entry : <span className="italic text-gray-400">No log submitted.</span>}
                   </p>
 
                   <textarea
