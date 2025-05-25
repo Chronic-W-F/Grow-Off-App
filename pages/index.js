@@ -18,39 +18,31 @@ export default function Home() {
   const [isSignup, setIsSignup] = useState(false);
   const [signupDisplayName, setSignupDisplayName] = useState('');
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setUser(user);
+ useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      setUser(user);
 
-        const userRef = doc(db, 'users', user.uid);
-        const userSnap = await getDoc(userRef);
+      const userRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
 
-        if (!userSnap.exists()) {
-          await setDoc(userRef, {
-            role: 'contestant',
-            displayName: user.email.split('@')[0],
-            email: user.email,
-            joinedAt: new Date(),
-            active: true,
-            submittedWeeks: [],
-          });
-        }
-
-        const freshSnap = await getDoc(userRef);
-        const data = freshSnap.data();
-
+      if (userSnap.exists()) {
+        const data = userSnap.data();
         setRole(data?.role || '');
         setDisplayName(data?.displayName || '');
       } else {
-        setUser(null);
-        setRole('');
-        setDisplayName('');
+        console.warn('User doc not found in Firestore.');
       }
-    });
+    } else {
+      setUser(null);
+      setRole('');
+      setDisplayName('');
+    }
+  });
 
-    return () => unsubscribe();
-  }, []);
+  return () => unsubscribe();
+}, []);
+
 
   const handleLogin = async () => {
     try {
