@@ -61,15 +61,26 @@ export default function Home() {
     }
   };
 
-  const handleSignup = async () => {
-    try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      // Firestore doc will be auto-created in useEffect
-    } catch (err) {
-      console.error('Signup failed:', err.message);
-      alert('Signup failed. Check email format and password (min 6 chars).');
-    }
-  };
+ const handleSignup = async () => {
+  try {
+    const userCred = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCred.user;
+
+    const userRef = doc(db, 'users', user.uid);
+    await setDoc(userRef, {
+      role: 'contestant',
+      displayName: signupDisplayName || user.email.split('@')[0],
+      email: user.email,
+      joinedAt: new Date(),
+      active: true,
+      submittedWeeks: [],
+    });
+  } catch (err) {
+    console.error('Signup failed:', err.message);
+    alert('Signup failed. Check email format and password (min 6 chars).');
+  }
+};
+
 
   const handleLogout = () => {
     signOut(auth);
