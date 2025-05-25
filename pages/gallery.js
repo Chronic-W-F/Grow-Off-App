@@ -1,12 +1,3 @@
-<div className="mb-4">
-  <a
-    href="/"
-    className="text-blue-600 underline hover:text-blue-800"
-  >
-    ← Home
-  </a>
-</div>
-
 import React, { useEffect, useState } from 'react';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -63,7 +54,18 @@ export default function ContestantGallery() {
   if (!user) return <p className="p-6 text-center">Please log in to view your gallery.</p>;
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+  <div className="p-6 max-w-xl mx-auto">
+    <div className="mb-4">
+      <a
+        href="/"
+        className="text-blue-600 underline hover:text-blue-800 text-sm"
+      >
+        ← Back to Home
+      </a>
+    </div>
+
+    {/* rest of your upload/gallery content here */}
+
       <h1 className="text-2xl font-bold mb-6">My Grow Log</h1>
 
       {Object.keys(imagesByWeek)
