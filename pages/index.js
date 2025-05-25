@@ -16,6 +16,7 @@ export default function Home() {
   const [role, setRole] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [isSignup, setIsSignup] = useState(false);
+  const [signupDisplayName, setSignupDisplayName] = useState('');
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
