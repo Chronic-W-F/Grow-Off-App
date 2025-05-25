@@ -123,16 +123,25 @@ export default function Home() {
         </>
       ) : (
         <>
-          <h1 className="text-xl mb-2">Welcome, {displayName || email}</h1>
-          <p className="mb-2">Role: <strong>{role || 'Loading...'}</strong></p>
-          <p className="mb-4 text-sm text-gray-500">Email: {email}</p>
-          <button
-            className="bg-red-600 text-white px-4 py-2 rounded"
-            onClick={handleLogout}
-          >
-            Logout
-          </button>
-        </>
+  <h1 className="text-xl mb-2">Welcome, {displayName || email}</h1>
+  <p className="mb-2">Role: <strong>{role || 'Loading...'}</strong></p>
+  <p className="mb-4 text-sm text-gray-500">Email: {email}</p>
+
+  <a
+    href="/upload"
+    className="inline-block bg-green-600 text-white px-4 py-2 rounded mb-2"
+  >
+    Go to Photo Upload
+  </a>
+
+  <button
+    className="bg-red-600 text-white px-4 py-2 rounded"
+    onClick={handleLogout}
+  >
+    Logout
+  </button>
+</>
+
       )}
     </div>
   );
