@@ -80,6 +80,15 @@ export default function Home() {
       {!user ? (
         <>
           <h1 className="text-xl mb-4">{isSignup ? 'Sign Up' : 'Login'}</h1>
+          {isSignup && (
+          <input
+    className="block w-full mb-2 p-2 border rounded"
+    placeholder="Display Name"
+    value={signupDisplayName}
+    onChange={(e) => setSignupDisplayName(e.target.value)}
+  />
+)}
+
           <input
             className="block w-full mb-2 p-2 border rounded"
             placeholder="Email"
