@@ -177,11 +177,14 @@ export default function ContestantGallery() {
             </button>
           </div>
 
-          <p className="text-white text-sm mt-2">
+                    <p className="text-white text-sm mt-2">
             Week {selectedWeek} – Image {selectedIndex + 1} of {imagesByWeek[selectedWeek].length}
           </p>
-        </div>
+        </div>  {/* closes modal */}
       )}
-    </div>
+    </div>  {/* closes outer wrapper div */}
   );
 }
+
+
+
