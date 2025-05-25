@@ -1,19 +1,10 @@
-<div className="mb-4">
-  <a
-    href="/"
-    className="text-blue-600 underline hover:text-blue-800"
-  >
-    ← Home
-  </a>
-</div>
-
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 
 export default function UploadPage() {
-  const [user, setUser] = useState(undefined);
+  const [user, setUser] = useState(null);
   const [image, setImage] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadedUrl, setUploadedUrl] = useState('');
@@ -21,7 +12,11 @@ export default function UploadPage() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser || null);
+      if (firebaseUser) {
+        setUser(firebaseUser);
+      } else {
+        setUser(null);
+      }
     });
 
     return () => unsubscribe();
@@ -45,7 +40,7 @@ export default function UploadPage() {
       const res = await fetch('https://api.imgur.com/3/image', {
         method: 'POST',
         headers: {
-          Authorization: 'Client-ID 06c0369bbcd9097',
+          Authorization: 'Client-ID 06c0369bbcd9097', // Replace with your Client-ID if needed
         },
         body: formData,
       });
@@ -54,22 +49,24 @@ export default function UploadPage() {
 
       if (data.success) {
         const imgUrl = data.data.link;
+        const imgDeleteHash = data.data.deletehash;
         setUploadedUrl(imgUrl);
 
         const userRef = doc(db, 'users', user.uid);
         await updateDoc(userRef, {
           uploadedImages: arrayUnion({
             url: imgUrl,
+            deletehash: imgDeleteHash,
             uploadedAt: new Date().toISOString(),
             week,
           }),
         });
       } else {
-        alert('Upload failed.');
+        alert('Imgur upload failed.');
       }
     } catch (err) {
       console.error('Upload error:', err);
-      alert('Upload failed.');
+      alert('Upload failed. Try again.');
     }
 
     setUploading(false);
@@ -92,19 +89,17 @@ export default function UploadPage() {
   }
 
   return (
-  <div className="p-6 max-w-xl mx-auto">
-    <div className="mb-4">
-      <a
-        href="/"
-        className="text-blue-600 underline hover:text-blue-800 text-sm"
-      >
-        ← Back to Home
-      </a>
-    </div>
+    <div className="p-6 max-w-xl mx-auto">
+      <div className="mb-4">
+        <a
+          href="/"
+          className="text-blue-600 underline hover:text-blue-800 text-sm"
+        >
+          ← Back to Home
+        </a>
+      </div>
 
-    {/* rest of your upload/gallery content here */}
-
-     <h1 className="text-2xl font-bold mb-4">Upload Weekly Photo</h1>
+      <h1 className="text-2xl font-bold mb-4">Upload Weekly Photo</h1>
 
       <label className="block mb-2 font-semibold">Week #</label>
       <select
@@ -138,7 +133,11 @@ export default function UploadPage() {
         <div className="mt-4">
           <p className="mb-2">Uploaded Image:</p>
           <a href={uploadedUrl} target="_blank" rel="noopener noreferrer">
-            <img src={uploadedUrl} alt="Uploaded" className="max-w-full rounded shadow" />
+            <img
+              src={uploadedUrl}
+              alt="Uploaded"
+              className="max-w-full rounded shadow"
+            />
           </a>
         </div>
       )}
