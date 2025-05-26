@@ -1,4 +1,3 @@
-// pages/index.js
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../firebase';
 import {
@@ -7,7 +6,13 @@ import {
   onAuthStateChanged,
 } from 'firebase/auth';
 import { useRouter } from 'next/router';
-import { collection, getDocs, doc, updateDoc, setDoc } from 'firebase/firestore';
+import {
+  collection,
+  getDocs,
+  doc,
+  updateDoc,
+  setDoc,
+} from 'firebase/firestore';
 
 const roles = {
   admin: 'admin',
@@ -23,7 +28,7 @@ export default function Home() {
   const [role, setRole] = useState(null);
   const router = useRouter();
 
-  // 🔒 Force logout on first page load
+  // 🔒 Force logout on page load
   useEffect(() => {
     signOut(auth);
   }, []);
@@ -36,7 +41,10 @@ export default function Home() {
 
         const rolesRef = collection(db, 'roles');
         const snapshot = await getDocs(rolesRef);
-        const rolesList = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        const rolesList = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
         console.log('📦 Roles List:', rolesList);
 
         let userRole = rolesList.find((entry) => entry.id === currentUser.uid)?.role;
