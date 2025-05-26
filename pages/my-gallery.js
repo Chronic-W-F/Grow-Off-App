@@ -190,6 +190,23 @@ export default function MyGallery() {
             zIndex: 9999,
           }}
         >
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push('/');
+            }}
+            style={{
+              position: 'absolute',
+              top: '1rem',
+              left: '1rem',
+              fontSize: '1.2rem',
+              color: 'white',
+              backgroundColor: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+            }}
+          >🏠 Home</button>
+
           <button onClick={(e) => { e.stopPropagation(); prevImage(); }} style={{ position: 'absolute', left: '2rem', fontSize: '2rem', color: 'white' }}>⬅</button>
           <img
             src={viewerImages[viewerIndex]}
