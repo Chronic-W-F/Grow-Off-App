@@ -1,9 +1,4 @@
-// pages/upload.js
-import React, { useEffect, useState } from 'react';
-import { auth, db } from '../firebase';
-import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { useRou// pages/my-gallery.js
+// pages/my-gallery.js
 import React, { useEffect, useState } from 'react';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -17,6 +12,9 @@ export default function MyGallery() {
   const [editWeek, setEditWeek] = useState(null);
   const [editLog, setEditLog] = useState('');
   const [editImages, setEditImages] = useState([]);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerImages, setViewerImages] = useState([]);
+  const [viewerIndex, setViewerIndex] = useState(0);
   const router = useRouter();
 
   useEffect(() => {
@@ -95,6 +93,26 @@ export default function MyGallery() {
     }
   };
 
+  const openViewer = (images, index) => {
+    setViewerImages(images);
+    setViewerIndex(index);
+    setViewerOpen(true);
+  };
+
+  const closeViewer = () => {
+    setViewerOpen(false);
+    setViewerImages([]);
+    setViewerIndex(0);
+  };
+
+  const nextImage = () => {
+    setViewerIndex((viewerIndex + 1) % viewerImages.length);
+  };
+
+  const prevImage = () => {
+    setViewerIndex((viewerIndex - 1 + viewerImages.length) % viewerImages.length);
+  };
+
   if (!userData) return <div>Loading...</div>;
 
   return (
@@ -148,150 +166,40 @@ export default function MyGallery() {
                   key={idx}
                   src={url}
                   alt={`img-${idx}`}
-                  style={{ width: '200px', borderRadius: '8px' }}
+                  style={{ width: '200px', borderRadius: '8px', cursor: 'pointer' }}
+                  onClick={() => openViewer(userData.uploadedImages[week], idx)}
                 />
               ))}
           </div>
         </div>
       ))}
-    </div>
-  );
-}
-ter } from 'next/router';
 
-export default function Upload() {
-  const [user, setUser] = useState(null);
-  const [role, setRole] = useState(null);
-  const [week, setWeek] = useState('');
-  const [logText, setLogText] = useState('');
-  const [images, setImages] = useState([]);
-  const router = useRouter();
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (!currentUser) return router.push('/');
-      setUser(currentUser);
-
-      const roleSnap = await getDoc(doc(db, 'roles', currentUser.uid));
-      const assignedRole = roleSnap.exists() ? roleSnap.data().role : 'contestant';
-      setRole(assignedRole);
-
-      if (assignedRole !== 'contestant') router.push('/');
-    });
-    return () => unsubscribe();
-  }, []);
-
-  const uploadToImgur = async (file) => {
-    const formData = new FormData();
-    formData.append('image', file);
-
-    const response = await fetch('https://api.imgur.com/3/image', {
-      method: 'POST',
-      headers: {
-        Authorization: 'Client-ID 06c0369bbcd9097',
-      },
-      body: formData,
-    });
-
-    const data = await response.json();
-    if (!response.ok || !data.data?.link) throw new Error('Imgur upload failed');
-    return data.data.link;
-  };
-
-  const handleUpload = async () => {
-    if (!week || !logText || images.length === 0) {
-      alert('Please fill in all fields and select at least one image.');
-      return;
-    }
-
-    const weekKey = String(week).trim();
-    const userRef = doc(db, 'users', user.uid);
-
-    try {
-      const userSnap = await getDoc(userRef);
-      const userData = userSnap.exists()
-        ? userSnap.data()
-        : {
-            growLogs: {},
-            uploadedImages: {},
-            submittedWeeks: [],
-          };
-
-      console.log('👤 Existing user data:', userData);
-
-      const imageUrls = await Promise.all(
-        Array.from(images).map(async (file) => {
-          const url = await uploadToImgur(file);
-          console.log('📸 Imgur Uploaded:', url);
-          return url;
-        })
-      );
-
-      const updatedLogs = {
-        ...userData.growLogs,
-        [weekKey]: logText,
-      };
-
-      const updatedImages = {
-        ...userData.uploadedImages,
-        [weekKey]: imageUrls,
-      };
-
-      const updatedWeeks = Array.from(
-        new Set([...(userData.submittedWeeks || []), weekKey])
-      ).map((w) => String(w));
-
-      const newData = {
-        displayName: userData.displayName || user.email.split('@')[0],
-        growLogs: updatedLogs,
-        uploadedImages: updatedImages,
-        submittedWeeks: updatedWeeks,
-      };
-
-      console.log('💾 Writing to Firestore:', newData);
-      await setDoc(userRef, newData, { merge: true });
-
-      alert(`✅ Week ${weekKey} submitted successfully.`);
-      setWeek('');
-      setLogText('');
-      setImages([]);
-    } catch (err) {
-      console.error('🔥 Upload failed:', err);
-      alert('Upload failed. Check console for details.');
-    }
-  };
-
-  return (
-    <div style={{ padding: '2rem' }}>
-      <h1>Upload Weekly Entry</h1>
-      <label>Week Number:</label>
-      <input
-        type="text"
-        value={week}
-        onChange={(e) => setWeek(e.target.value)}
-        placeholder="e.g., 4"
-        style={{ display: 'block', marginBottom: '1rem' }}
-      />
-
-      <label>Grow Log Notes:</label>
-      <textarea
-        value={logText}
-        onChange={(e) => setLogText(e.target.value)}
-        rows={4}
-        style={{ display: 'block', width: '100%', marginBottom: '1rem' }}
-        placeholder="What happened this week?"
-      />
-
-      <label>Upload Photos:</label>
-      <input
-        type="file"
-        accept="image/*"
-        multiple
-        onChange={(e) => setImages(e.target.files)}
-        style={{ display: 'block', marginBottom: '1rem' }}
-      />
-
-      <button onClick={handleUpload}>Submit Week</button>
+      {viewerOpen && (
+        <div
+          onClick={closeViewer}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 9999,
+          }}
+        >
+          <button onClick={(e) => { e.stopPropagation(); prevImage(); }} style={{ position: 'absolute', left: '2rem', fontSize: '2rem', color: 'white' }}>⬅</button>
+          <img
+            src={viewerImages[viewerIndex]}
+            alt={`full-${viewerIndex}`}
+            style={{ maxHeight: '80vh', maxWidth: '80vw', borderRadius: '10px' }}
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button onClick={(e) => { e.stopPropagation(); nextImage(); }} style={{ position: 'absolute', right: '2rem', fontSize: '2rem', color: 'white' }}>➡</button>
+        </div>
+      )}
     </div>
   );
 }
