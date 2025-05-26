@@ -1,39 +1,59 @@
+// pages/index.js
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../firebase';
 import {
-  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { useRouter } from 'next/router';
+import { collection, getDocs, doc, updateDoc, setDoc } from 'firebase/firestore';
+
+const roles = {
+  admin: 'admin',
+  judge: 'judge',
+  contestant: 'contestant',
+  tech: 'tech',
+};
 
 export default function Home() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [user, setUser] = useState(null);
-  const [role, setRole] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [isSignup, setIsSignup] = useState(false);
-  const [signupDisplayName, setSignupDisplayName] = useState('');
+  const [role, setRole] = useState(null);
+  const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setUser(user);
-        const userRef = doc(db, 'users', user.uid);
-        const userSnap = await getDoc(userRef);
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        console.log('✅ Logged in UID:', currentUser.uid);
+        setUser(currentUser);
 
-        if (userSnap.exists()) {
-          const data = userSnap.data();
-          setRole(data?.role || '');
-          setDisplayName(data?.displayName || '');
-          setEmail(data?.email || user.email);
+        const rolesRef = collection(db, 'roles');
+        const snapshot = await getDocs(rolesRef);
+        const rolesList = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        console.log('📦 Roles List:', rolesList);
+
+        let userRole = rolesList.find((entry) => entry.id === currentUser.uid)?.role;
+
+        // 🛡 God Mode fallback
+        const isFallbackAdmin = currentUser.email === 'admin@demo.com';
+        const defaultRole = isFallbackAdmin ? 'admin' : 'contestant';
+
+        if (!userRole) {
+          console.log('🆕 No role found, creating default role:', defaultRole);
+          const roleDoc = doc(db, 'roles', currentUser.uid);
+          await updateDoc(roleDoc, { role: defaultRole }).catch(async () => {
+            await setDoc(roleDoc, { role: defaultRole });
+          });
+          userRole = defaultRole;
         }
+
+        console.log('🎯 Matched Role:', userRole);
+        setRole(userRole);
       } else {
         setUser(null);
-        setRole('');
-        setDisplayName('');
+        setRole(null);
       }
     });
 
@@ -43,110 +63,53 @@ export default function Home() {
   const handleLogin = async () => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
-    } catch (err) {
-      console.error('Login failed:', err.message);
-      alert('Login failed. Check your credentials.');
+    } catch (error) {
+      console.error(error.message);
     }
   };
 
-  const handleSignup = async () => {
-    try {
-      const userCred = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCred.user;
-
-      const userRef = doc(db, 'users', user.uid);
-      await setDoc(userRef, {
-        role: 'contestant',
-        displayName: signupDisplayName || user.email.split('@')[0],
-        email: user.email,
-        joinedAt: new Date(),
-        active: true,
-        submittedWeeks: [],
-      });
-    } catch (err) {
-      console.error('Signup failed:', err.message);
-      alert('Signup failed. Check email format and password (min 6 chars).');
-    }
-  };
-
-  const handleLogout = () => {
-    signOut(auth);
+  const handleLogout = async () => {
+    await signOut(auth);
+    setUser(null);
+    setRole(null);
   };
 
   return (
-    <div className="p-6 max-w-md mx-auto">
+    <div style={{ padding: '2rem' }}>
+      <h1>Grow-Off App Home</h1>
+
       {!user ? (
         <>
-          <h1 className="text-xl mb-4">{isSignup ? 'Sign Up' : 'Login'}</h1>
-
-          {isSignup && (
-            <input
-              className="block w-full mb-2 p-2 border rounded"
-              placeholder="Display Name"
-              value={signupDisplayName}
-              onChange={(e) => setSignupDisplayName(e.target.value)}
-            />
-          )}
-
           <input
-            className="block w-full mb-2 p-2 border rounded"
+            type="email"
             placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            style={{ display: 'block', marginBottom: '1rem' }}
           />
           <input
-            className="block w-full mb-4 p-2 border rounded"
             type="password"
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            style={{ display: 'block', marginBottom: '1rem' }}
           />
-
-          <button
-            className="bg-blue-600 text-white px-4 py-2 rounded mb-2 w-full"
-            onClick={isSignup ? handleSignup : handleLogin}
-          >
-            {isSignup ? 'Create Account' : 'Login'}
-          </button>
-
-          <p className="text-sm text-center">
-            {isSignup ? 'Already have an account?' : "Don't have an account?"}{' '}
-            <button
-              className="text-blue-600 underline"
-              onClick={() => setIsSignup(!isSignup)}
-            >
-              {isSignup ? 'Login here' : 'Sign up here'}
-            </button>
-          </p>
+          <button onClick={handleLogin}>Login</button>
         </>
       ) : (
         <>
-          <h1 className="text-xl mb-2">Welcome, {displayName || email}</h1>
-          <p className="mb-2">Role: <strong>{role || 'Loading...'}</strong></p>
-          <p className="mb-4 text-sm text-gray-500">Email: {email}</p>
+          <p>Logged in as: {user.email}</p>
+          <p>Role: {role}</p>
+          <button onClick={handleLogout}>Logout</button>
 
-          <div className="flex flex-col sm:flex-row gap-4 mb-4">
-            <a
-              href="/upload"
-              className="bg-green-600 text-white px-4 py-2 rounded text-center"
+          {(role === 'judge' || role === 'admin') && (
+            <button
+              style={{ marginLeft: '1rem' }}
+              onClick={() => router.push('/gallery')}
             >
-              📤 Upload Photo
-            </a>
-
-            <a
-              href="/gallery"
-              className="bg-blue-600 text-white px-4 py-2 rounded text-center"
-            >
-              🖼️ View Gallery
-            </a>
-          </div>
-
-          <button
-            className="bg-red-600 text-white px-4 py-2 rounded"
-            onClick={handleLogout}
-          >
-            Logout
-          </button>
+              Judge Area
+            </button>
+          )}
         </>
       )}
     </div>
