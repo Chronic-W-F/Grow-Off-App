@@ -1,15 +1,22 @@
 // pages/upload.js
-import { storage } from '../firebase';
 import React, { useEffect, useState } from 'react';
-import { auth, db } from '../firebase';
+import { auth, db, storage } from '../firebase';
 import {
-  onAuthStateChanged,
-  getDownloadURL,
+  onAuthStateChanged
+} from 'firebase/auth';
+import {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc
+} from 'firebase/firestore';
+import {
   ref,
   uploadBytes,
+  getDownloadURL
 } from 'firebase/storage';
-import { collection, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { useRouter } from 'next/router';
+
 
 export default function Upload() {
   const [user, setUser] = useState(null);
