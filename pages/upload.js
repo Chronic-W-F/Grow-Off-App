@@ -8,10 +8,10 @@ import { useRouter } from 'next/router';
 
 export default function Upload() {
   const [user, setUser] = useState(null);
+  const [role, setRole] = useState(null);
   const [week, setWeek] = useState('');
   const [logText, setLogText] = useState('');
   const [images, setImages] = useState([]);
-  const [role, setRole] = useState('');
   const router = useRouter();
 
   useEffect(() => {
@@ -23,9 +23,7 @@ export default function Upload() {
       const assignedRole = roleSnap.exists() ? roleSnap.data().role : 'contestant';
       setRole(assignedRole);
 
-      if (assignedRole !== 'contestant') {
-        router.push('/');
-      }
+      if (assignedRole !== 'contestant') router.push('/');
     });
     return () => unsubscribe();
   }, []);
@@ -36,25 +34,29 @@ export default function Upload() {
       return;
     }
 
-    const userRef = doc(db, 'users', user.uid);
-    const userSnap = await getDoc(userRef);
-    const userData = userSnap.exists()
-      ? userSnap.data()
-      : {
-          growLogs: {},
-          uploadedImages: {},
-          submittedWeeks: [],
-        };
-
     const weekKey = String(week).trim();
+    const userRef = doc(db, 'users', user.uid);
 
     try {
+      const userSnap = await getDoc(userRef);
+      const userData = userSnap.exists()
+        ? userSnap.data()
+        : {
+            growLogs: {},
+            uploadedImages: {},
+            submittedWeeks: [],
+          };
+
+      console.log('👤 Existing user data:', userData);
+
       const imageUrls = await Promise.all(
         Array.from(images).map(async (file) => {
           const path = `uploads/${user.uid}/week${weekKey}/${file.name}`;
           const fileRef = ref(storage, path);
           await uploadBytes(fileRef, file);
-          return await getDownloadURL(fileRef);
+          const url = await getDownloadURL(fileRef);
+          console.log('📸 Uploaded:', url);
+          return url;
         })
       );
 
@@ -72,31 +74,28 @@ export default function Upload() {
         new Set([...(userData.submittedWeeks || []), weekKey])
       );
 
-      await setDoc(
-        userRef,
-        {
-          displayName: userData.displayName || user.email.split('@')[0],
-          growLogs: updatedLogs,
-          uploadedImages: updatedImages,
-          submittedWeeks: updatedWeeks,
-        },
-        { merge: true }
-      );
+      const newData = {
+        displayName: userData.displayName || user.email.split('@')[0],
+        growLogs: updatedLogs,
+        uploadedImages: updatedImages,
+        submittedWeeks: updatedWeeks,
+      };
 
-      alert(`Week ${weekKey} submitted successfully.`);
+      console.log('💾 Writing to Firestore:', newData);
+      await setDoc(userRef, newData, { merge: true });
+      alert(`✅ Week ${weekKey} submitted successfully.`);
       setWeek('');
       setLogText('');
       setImages([]);
     } catch (err) {
       console.error('🔥 Upload failed:', err);
-      alert('Upload failed. See console for error.');
+      alert('Upload failed. Check console for details.');
     }
   };
 
   return (
     <div style={{ padding: '2rem' }}>
       <h1>Upload Weekly Entry</h1>
-
       <label>Week Number:</label>
       <input
         type="text"
