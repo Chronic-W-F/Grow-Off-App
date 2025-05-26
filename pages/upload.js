@@ -1,218 +1,111 @@
-import React, { useState, useEffect } from 'react';
+// pages/upload.js
+import React, { useEffect, useState } from 'react';
 import { auth, db } from '../firebase';
-import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import {
+  onAuthStateChanged,
+  getDownloadURL,
+  ref,
+  uploadBytes,
+} from 'firebase/storage';
+import { collection, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { useRouter } from 'next/router';
 
-export default function UploadPage() {
+export default function Upload() {
   const [user, setUser] = useState(null);
-  const [image, setImage] = useState(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadedUrl, setUploadedUrl] = useState('');
-  const [week, setWeek] = useState(1);
-  const [growLog, setGrowLog] = useState('');
-  const [editingLog, setEditingLog] = useState(false);
-  const [logSaved, setLogSaved] = useState(false);
+  const [week, setWeek] = useState('');
+  const [logText, setLogText] = useState('');
+  const [images, setImages] = useState([]);
+  const [role, setRole] = useState('');
+  const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        setUser(firebaseUser);
-        const userRef = doc(db, 'users', firebaseUser.uid);
-        const userSnap = await getDoc(userRef);
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (!currentUser) return router.push('/');
+      setUser(currentUser);
 
-        if (userSnap.exists()) {
-          const logs = userSnap.data().growLogs || {};
-          setGrowLog(logs[week] || '');
-        }
-      } else {
-        setUser(null);
+      const roleSnap = await getDoc(doc(db, 'roles', currentUser.uid));
+      const assignedRole = roleSnap.exists() ? roleSnap.data().role : 'contestant';
+      setRole(assignedRole);
+
+      if (assignedRole !== 'contestant') {
+        router.push('/');
       }
     });
-
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    const loadLogForWeek = async () => {
-      if (user) {
-        const userRef = doc(db, 'users', user.uid);
-        const userSnap = await getDoc(userRef);
-
-        if (userSnap.exists()) {
-          const logs = userSnap.data().growLogs || {};
-          setGrowLog(logs[week] || '');
-        }
-      }
-    };
-    loadLogForWeek();
-  }, [week]);
-
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImage(file);
-    }
-  };
-
   const handleUpload = async () => {
-    if (!image || !user) return;
-
-    setUploading(true);
-    const formData = new FormData();
-    formData.append('image', image);
-
-    try {
-      const res = await fetch('https://api.imgur.com/3/image', {
-        method: 'POST',
-        headers: {
-          Authorization: 'Client-ID 06c0369bbcd9097',
-        },
-        body: formData,
-      });
-
-      const data = await res.json();
-
-      if (data.success) {
-        const imgUrl = data.data.link;
-        const imgDeleteHash = data.data.deletehash;
-        setUploadedUrl(imgUrl);
-
-        const userRef = doc(db, 'users', user.uid);
-        await updateDoc(userRef, {
-          uploadedImages: arrayUnion({
-            url: imgUrl,
-            deletehash: imgDeleteHash,
-            uploadedAt: new Date().toISOString(),
-            week,
-          }),
-        });
-      } else {
-        alert('Imgur upload failed.');
-      }
-    } catch (err) {
-      console.error('Upload error:', err);
-      alert('Upload failed. Try again.');
+    if (!week || !logText || images.length === 0) {
+      alert('Please fill in all fields and select at least one image.');
+      return;
     }
 
-    setUploading(false);
-  };
+    const userRef = doc(db, 'users', user.uid);
+    const userSnap = await getDoc(userRef);
+    const userData = userSnap.exists() ? userSnap.data() : {};
 
-  const handleSaveLog = async () => {
-    if (!user) return;
-
-    try {
-      const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, {
-        [`growLogs.${week}`]: growLog,
-      });
-      setEditingLog(false);
-      setLogSaved(true);
-      setTimeout(() => setLogSaved(false), 2000);
-    } catch (err) {
-      console.error('Error saving grow log:', err);
-      alert('Could not save grow log.');
-    }
-  };
-
-  if (user === undefined) {
-    return (
-      <div className="p-6 text-center">
-        <p>Loading...</p>
-      </div>
+    // Upload all images
+    const imageUrls = await Promise.all(
+      Array.from(images).map(async (file) => {
+        const path = `uploads/${user.uid}/week${week}/${file.name}`;
+        const fileRef = ref(storage, path);
+        await uploadBytes(fileRef, file);
+        return await getDownloadURL(fileRef);
+      })
     );
-  }
 
-  if (!user) {
-    return (
-      <div className="p-6 text-center">
-        <p>Please log in to upload your photo.</p>
-      </div>
-    );
-  }
+    const newGrowLogs = { ...userData.growLogs, [week]: logText };
+    const newImages = {
+      ...userData.uploadedImages,
+      [week]: [...(userData.uploadedImages?.[week] || []), ...imageUrls],
+    };
+
+    await setDoc(userRef, {
+      ...userData,
+      displayName: userData.displayName || user.email.split('@')[0],
+      growLogs: newGrowLogs,
+      uploadedImages: newImages,
+      submittedWeeks: [...new Set([...(userData.submittedWeeks || []), week])],
+    });
+
+    alert('Week submission saved!');
+    setWeek('');
+    setLogText('');
+    setImages([]);
+  };
 
   return (
-    <div className="p-6 max-w-xl mx-auto">
-      <div className="mb-4">
-        <a
-          href="/"
-          className="text-blue-600 underline hover:text-blue-800 text-sm"
-        >
-          ← Back to Home
-        </a>
-      </div>
+    <div style={{ padding: '2rem' }}>
+      <h1>Upload Weekly Entry</h1>
 
-      <h1 className="text-2xl font-bold mb-4">Upload Weekly Photo</h1>
-
-      <label className="block mb-2 font-semibold">Week #</label>
-      <select
-        className="block mb-4 p-2 border rounded"
+      <label>Week Number:</label>
+      <input
+        type="text"
         value={week}
-        onChange={(e) => setWeek(Number(e.target.value))}
-      >
-        {Array.from({ length: 12 }, (_, i) => (
-          <option key={i + 1} value={i + 1}>
-            Week {i + 1}
-          </option>
-        ))}
-      </select>
-
-      <label className="block mb-2 font-semibold">Grow Log</label>
-      <textarea
-        className="w-full border p-2 rounded mb-2"
-        rows={6}
-        value={growLog}
-        onChange={(e) => setGrowLog(e.target.value)}
-        disabled={!editingLog}
-        placeholder="Write something about your grow this week..."
+        onChange={(e) => setWeek(e.target.value)}
+        placeholder="e.g., 1"
+        style={{ display: 'block', marginBottom: '1rem' }}
       />
 
-      {!editingLog ? (
-        <button
-          className="bg-yellow-500 text-white px-4 py-2 rounded mb-4"
-          onClick={() => setEditingLog(true)}
-        >
-          ✏️ Edit Grow Log
-        </button>
-      ) : (
-        <button
-          className="bg-green-600 text-white px-4 py-2 rounded mb-4"
-          onClick={handleSaveLog}
-        >
-          💾 Save Grow Log
-        </button>
-      )}
+      <label>Grow Log Notes:</label>
+      <textarea
+        value={logText}
+        onChange={(e) => setLogText(e.target.value)}
+        rows={4}
+        style={{ display: 'block', width: '100%', marginBottom: '1rem' }}
+        placeholder="What happened this week?"
+      />
 
-      {logSaved && (
-        <p className="text-green-600 text-sm mb-2">Grow log saved!</p>
-      )}
-
+      <label>Upload Photos:</label>
       <input
         type="file"
         accept="image/*"
-        className="mb-4"
-        onChange={handleFileChange}
+        multiple
+        onChange={(e) => setImages(e.target.files)}
+        style={{ display: 'block', marginBottom: '1rem' }}
       />
 
-      <button
-        className="bg-blue-600 text-white px-4 py-2 rounded"
-        onClick={handleUpload}
-        disabled={uploading}
-      >
-        {uploading ? 'Uploading...' : 'Upload to Imgur'}
-      </button>
-
-      {uploadedUrl && (
-        <div className="mt-4">
-          <p className="mb-2">Uploaded Image:</p>
-          <a href={uploadedUrl} target="_blank" rel="noopener noreferrer">
-            <img
-              src={uploadedUrl}
-              alt="Uploaded"
-              className="max-w-full rounded shadow"
-            />
-          </a>
-        </div>
-      )}
+      <button onClick={handleUpload}>Submit Week</button>
     </div>
   );
 }
