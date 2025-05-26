@@ -11,6 +11,8 @@ export default function Upload() {
   const [week, setWeek] = useState('');
   const [logText, setLogText] = useState('');
   const [images, setImages] = useState([]);
+  const [previewUrls, setPreviewUrls] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -44,14 +46,27 @@ export default function Upload() {
     return data.data.link;
   };
 
+  const handleImageChange = (e) => {
+    const files = Array.from(e.target.files);
+    setImages(files);
+    const urls = files.map((file) => URL.createObjectURL(file));
+    setPreviewUrls(urls);
+  };
+
   const handleUpload = async () => {
     if (!week || !logText || images.length === 0) {
       alert('Please fill in all fields and select at least one image.');
       return;
     }
 
+    if (isNaN(week) || parseInt(week) < 1 || parseInt(week) > 12) {
+      alert('Please enter a valid week number between 1 and 12.');
+      return;
+    }
+
     const weekKey = String(week).trim();
     const userRef = doc(db, 'users', user.uid);
+    setIsSubmitting(true);
 
     try {
       const userSnap = await getDoc(userRef);
@@ -66,7 +81,7 @@ export default function Upload() {
       console.log('👤 Existing user data:', userData);
 
       const imageUrls = await Promise.all(
-        Array.from(images).map(async (file) => {
+        images.map(async (file) => {
           const url = await uploadToImgur(file);
           console.log('📸 Imgur Uploaded:', url);
           return url;
@@ -101,22 +116,28 @@ export default function Upload() {
       setWeek('');
       setLogText('');
       setImages([]);
+      setPreviewUrls([]);
     } catch (err) {
       console.error('🔥 Upload failed:', err);
       alert('Upload failed. Check console for details.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <div style={{ padding: '2rem' }}>
       <h1>Upload Weekly Entry</h1>
+
       <label>Week Number:</label>
       <input
-        type="text"
+        type="number"
         value={week}
         onChange={(e) => setWeek(e.target.value)}
         placeholder="e.g., 4"
         style={{ display: 'block', marginBottom: '1rem' }}
+        min="1"
+        max="12"
       />
 
       <label>Grow Log Notes:</label>
@@ -133,11 +154,26 @@ export default function Upload() {
         type="file"
         accept="image/*"
         multiple
-        onChange={(e) => setImages(e.target.files)}
+        onChange={handleImageChange}
         style={{ display: 'block', marginBottom: '1rem' }}
       />
 
-      <button onClick={handleUpload}>Submit Week</button>
+      {previewUrls.length > 0 && (
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '1rem' }}>
+          {previewUrls.map((url, idx) => (
+            <img
+              key={idx}
+              src={url}
+              alt={`preview-${idx}`}
+              style={{ width: '120px', borderRadius: '8px' }}
+            />
+          ))}
+        </div>
+      )}
+
+      <button onClick={handleUpload} disabled={isSubmitting}>
+        {isSubmitting ? 'Submitting...' : 'Submit Week'}
+      </button>
     </div>
   );
 }
