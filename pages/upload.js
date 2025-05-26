@@ -40,7 +40,7 @@ export default function Upload() {
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data?.data?.error || 'Imgur upload failed');
+    if (!response.ok || !data.data?.link) throw new Error('Imgur upload failed');
     return data.data.link;
   };
 
@@ -78,18 +78,14 @@ export default function Upload() {
         [weekKey]: logText,
       };
 
-      const currentImages = Array.isArray(userData.uploadedImages?.[weekKey])
-        ? userData.uploadedImages[weekKey]
-        : [];
-
       const updatedImages = {
         ...userData.uploadedImages,
-        [weekKey]: [...currentImages, ...imageUrls],
+        [weekKey]: imageUrls,
       };
 
       const updatedWeeks = Array.from(
         new Set([...(userData.submittedWeeks || []), weekKey])
-      );
+      ).map((w) => String(w));
 
       const newData = {
         displayName: userData.displayName || user.email.split('@')[0],
@@ -100,6 +96,7 @@ export default function Upload() {
 
       console.log('💾 Writing to Firestore:', newData);
       await setDoc(userRef, newData, { merge: true });
+
       alert(`✅ Week ${weekKey} submitted successfully.`);
       setWeek('');
       setLogText('');
