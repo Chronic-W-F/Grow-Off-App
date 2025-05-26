@@ -12,29 +12,42 @@ export default function JudgeGallery() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
+ useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    if (currentUser) {
+      console.log('✅ Logged in UID:', currentUser.uid);
+      setUser(currentUser);
 
+      try {
         const rolesRef = collection(db, 'roles');
         const snapshot = await getDocs(rolesRef);
-        const userRole = snapshot.docs
-          .map((doc) => ({ id: doc.id, ...doc.data() }))
-          .find((entry) => entry.id === currentUser.uid)?.role;
+        const rolesList = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        console.log('📦 Roles List:', rolesList);
+
+        const userRole = rolesList.find((entry) => entry.id === currentUser.uid)?.role;
+        console.log('🎯 Matched Role:', userRole);
 
         setRole(userRole || 'none');
         setLoading(false);
-      } else {
-        setUser(null);
+      } catch (err) {
+        console.error('🔥 Role fetch error:', err);
         setRole('none');
         setLoading(false);
-        router.push('/');
       }
-    });
+    } else {
+      console.log('❌ No user, redirecting to home...');
+      setUser(null);
+      setRole('none');
+      setLoading(false);
+      router.push('/');
+    }
+  });
 
-    return () => unsubscribe();
-  }, []);
+  return () => unsubscribe();
+}, []);
 
   useEffect(() => {
     if (role === 'judge' || role === 'admin') {
