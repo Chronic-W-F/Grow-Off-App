@@ -1,9 +1,8 @@
 // pages/upload.js
 import React, { useEffect, useState } from 'react';
-import { auth, db, storage } from '../firebase';
+import { auth, db } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useRouter } from 'next/router';
 
 export default function Upload() {
@@ -28,6 +27,23 @@ export default function Upload() {
     return () => unsubscribe();
   }, []);
 
+  const uploadToImgur = async (file) => {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const response = await fetch('https://api.imgur.com/3/image', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Client-ID 06c0369bbcd9097',
+      },
+      body: formData,
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.data?.error || 'Imgur upload failed');
+    return data.data.link;
+  };
+
   const handleUpload = async () => {
     if (!week || !logText || images.length === 0) {
       alert('Please fill in all fields and select at least one image.');
@@ -51,11 +67,8 @@ export default function Upload() {
 
       const imageUrls = await Promise.all(
         Array.from(images).map(async (file) => {
-          const path = `uploads/${user.uid}/week${weekKey}/${file.name}`;
-          const fileRef = ref(storage, path);
-          await uploadBytes(fileRef, file);
-          const url = await getDownloadURL(fileRef);
-          console.log('📸 Uploaded:', url);
+          const url = await uploadToImgur(file);
+          console.log('📸 Imgur Uploaded:', url);
           return url;
         })
       );
