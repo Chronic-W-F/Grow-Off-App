@@ -28,9 +28,14 @@ export default function JudgeGallery() {
 
         let userRole = rolesList.find((entry) => entry.id === currentUser.uid)?.role;
 
-        // 🛡 Full God Mode fallback
+        // 🛡 Full God Mode fallback (admin + judge)
         const isFallbackAdmin = currentUser.email === 'admin@demo.com';
-        const defaultRole = isFallbackAdmin ? 'admin' : 'contestant';
+        const isFallbackJudge = currentUser.email === 'judge1@demo.com';
+        const defaultRole = isFallbackAdmin
+          ? 'admin'
+          : isFallbackJudge
+          ? 'judge'
+          : 'contestant';
 
         if (!userRole) {
           console.log('🆕 No role found, creating default role:', defaultRole);
