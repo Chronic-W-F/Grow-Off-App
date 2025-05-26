@@ -1,6 +1,6 @@
 // pages/gallery/index.js
 import React, { useEffect, useState } from 'react';
-import { db, auth } from '../../firebase';
+import { auth, db } from '../firebase';
 import { collection, getDocs, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useRouter } from 'next/router';
