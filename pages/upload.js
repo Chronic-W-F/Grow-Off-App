@@ -1,22 +1,10 @@
 // pages/upload.js
 import React, { useEffect, useState } from 'react';
 import { auth, db, storage } from '../firebase';
-import {
-  onAuthStateChanged
-} from 'firebase/auth';
-import {
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc
-} from 'firebase/firestore';
-import {
-  ref,
-  uploadBytes,
-  getDownloadURL
-} from 'firebase/storage';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useRouter } from 'next/router';
-
 
 export default function Upload() {
   const [user, setUser] = useState(null);
@@ -50,9 +38,14 @@ export default function Upload() {
 
     const userRef = doc(db, 'users', user.uid);
     const userSnap = await getDoc(userRef);
-    const userData = userSnap.exists() ? userSnap.data() : {};
+    const userData = userSnap.exists()
+      ? userSnap.data()
+      : {
+          growLogs: {},
+          uploadedImages: {},
+          submittedWeeks: [],
+        };
 
-    // Upload all images
     const imageUrls = await Promise.all(
       Array.from(images).map(async (file) => {
         const path = `uploads/${user.uid}/week${week}/${file.name}`;
@@ -62,19 +55,30 @@ export default function Upload() {
       })
     );
 
-    const newGrowLogs = { ...userData.growLogs, [week]: logText };
-    const newImages = {
+    const updatedLogs = {
+      ...userData.growLogs,
+      [week]: logText,
+    };
+
+    const updatedImages = {
       ...userData.uploadedImages,
       [week]: [...(userData.uploadedImages?.[week] || []), ...imageUrls],
     };
 
-    await setDoc(userRef, {
-      ...userData,
-      displayName: userData.displayName || user.email.split('@')[0],
-      growLogs: newGrowLogs,
-      uploadedImages: newImages,
-      submittedWeeks: [...new Set([...(userData.submittedWeeks || []), week])],
-    });
+    const updatedWeeks = Array.from(
+      new Set([...(userData.submittedWeeks || []), week])
+    );
+
+    await setDoc(
+      userRef,
+      {
+        displayName: userData.displayName || user.email.split('@')[0],
+        growLogs: updatedLogs,
+        uploadedImages: updatedImages,
+        submittedWeeks: updatedWeeks,
+      },
+      { merge: true }
+    );
 
     alert('Week submission saved!');
     setWeek('');
@@ -91,7 +95,7 @@ export default function Upload() {
         type="text"
         value={week}
         onChange={(e) => setWeek(e.target.value)}
-        placeholder="e.g., 1"
+        placeholder="e.g., 4"
         style={{ display: 'block', marginBottom: '1rem' }}
       />
 
