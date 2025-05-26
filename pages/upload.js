@@ -46,44 +46,51 @@ export default function Upload() {
           submittedWeeks: [],
         };
 
-    const imageUrls = await Promise.all(
-      Array.from(images).map(async (file) => {
-        const path = `uploads/${user.uid}/week${week}/${file.name}`;
-        const fileRef = ref(storage, path);
-        await uploadBytes(fileRef, file);
-        return await getDownloadURL(fileRef);
-      })
-    );
+    const weekKey = String(week).trim();
 
-    const updatedLogs = {
-      ...userData.growLogs,
-      [week]: logText,
-    };
+    try {
+      const imageUrls = await Promise.all(
+        Array.from(images).map(async (file) => {
+          const path = `uploads/${user.uid}/week${weekKey}/${file.name}`;
+          const fileRef = ref(storage, path);
+          await uploadBytes(fileRef, file);
+          return await getDownloadURL(fileRef);
+        })
+      );
 
-    const updatedImages = {
-      ...userData.uploadedImages,
-      [week]: [...(userData.uploadedImages?.[week] || []), ...imageUrls],
-    };
+      const updatedLogs = {
+        ...userData.growLogs,
+        [weekKey]: logText,
+      };
 
-    const updatedWeeks = Array.from(
-      new Set([...(userData.submittedWeeks || []), week])
-    );
+      const updatedImages = {
+        ...userData.uploadedImages,
+        [weekKey]: [...(userData.uploadedImages?.[weekKey] || []), ...imageUrls],
+      };
 
-    await setDoc(
-      userRef,
-      {
-        displayName: userData.displayName || user.email.split('@')[0],
-        growLogs: updatedLogs,
-        uploadedImages: updatedImages,
-        submittedWeeks: updatedWeeks,
-      },
-      { merge: true }
-    );
+      const updatedWeeks = Array.from(
+        new Set([...(userData.submittedWeeks || []), weekKey])
+      );
 
-    alert('Week submission saved!');
-    setWeek('');
-    setLogText('');
-    setImages([]);
+      await setDoc(
+        userRef,
+        {
+          displayName: userData.displayName || user.email.split('@')[0],
+          growLogs: updatedLogs,
+          uploadedImages: updatedImages,
+          submittedWeeks: updatedWeeks,
+        },
+        { merge: true }
+      );
+
+      alert(`Week ${weekKey} submitted successfully.`);
+      setWeek('');
+      setLogText('');
+      setImages([]);
+    } catch (err) {
+      console.error('🔥 Upload failed:', err);
+      alert('Upload failed. See console for error.');
+    }
   };
 
   return (
