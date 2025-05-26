@@ -78,9 +78,13 @@ export default function Upload() {
         [weekKey]: logText,
       };
 
+      const currentImages = Array.isArray(userData.uploadedImages?.[weekKey])
+        ? userData.uploadedImages[weekKey]
+        : [];
+
       const updatedImages = {
         ...userData.uploadedImages,
-        [weekKey]: [...(userData.uploadedImages?.[weekKey] || []), ...imageUrls],
+        [weekKey]: [...currentImages, ...imageUrls],
       };
 
       const updatedWeeks = Array.from(
