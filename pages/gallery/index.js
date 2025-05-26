@@ -7,26 +7,28 @@ import { useRouter } from 'next/router';
 
 export default function JudgeGallery() {
   const [user, setUser] = useState(null);
-  const [role, setRole] = useState('');
+  const [role, setRole] = useState(null); // null = not fetched yet
   const [usersData, setUsersData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setUser(user);
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
 
         const rolesRef = collection(db, 'roles');
         const snapshot = await getDocs(rolesRef);
         const userRole = snapshot.docs
           .map((doc) => ({ id: doc.id, ...doc.data() }))
-          .find((entry) => entry.id === user.uid)?.role;
+          .find((entry) => entry.id === currentUser.uid)?.role;
 
-        setRole(userRole || '');
-        if (userRole !== 'judge' && userRole !== 'admin') {
-          router.push('/');
-        }
+        setRole(userRole || 'none');
+        setLoading(false);
       } else {
+        setUser(null);
+        setRole('none');
+        setLoading(false);
         router.push('/');
       }
     });
@@ -47,6 +49,8 @@ export default function JudgeGallery() {
       };
 
       fetchData();
+    } else if (role && role !== 'judge' && role !== 'admin') {
+      router.push('/');
     }
   }, [role]);
 
@@ -60,7 +64,6 @@ export default function JudgeGallery() {
       judgeNotes: updatedNotes
     });
 
-    // Update local state
     setUsersData((prev) =>
       prev.map((u) =>
         u.id === userId ? { ...u, judgeNotes: updatedNotes } : u
@@ -68,7 +71,7 @@ export default function JudgeGallery() {
     );
   };
 
-  if (!user || (role !== 'judge' && role !== 'admin')) {
+  if (loading || !user || role === null) {
     return <div>Loading...</div>;
   }
 
@@ -79,50 +82,60 @@ export default function JudgeGallery() {
         Back to Home
       </button>
 
-      {usersData.map((user) => (
-        <div key={user.id} style={{ marginBottom: '3rem' }}>
-          <h2>{user.displayName || 'Unnamed Contestant'}</h2>
+      {usersData.length === 0 ? (
+        <p>No contestant data available.</p>
+      ) : (
+        usersData.map((user) => (
+          <div key={user.id} style={{ marginBottom: '3rem' }}>
+            <h2>{user.displayName || 'Unnamed Contestant'}</h2>
 
-          {user.growLogs &&
-            Object.keys(user.growLogs).map((week) => (
-              <div
-                key={week}
-                style={{
-                  marginBottom: '2rem',
-                  padding: '1rem',
-                  border: '1px solid #ccc',
-                  borderRadius: '8px'
-                }}
-              >
-                <h3>Week {week}</h3>
-                <p>
-                  <strong>Grow Log:</strong> {user.growLogs[week]}
-                </p>
+            {user.growLogs &&
+              Object.keys(user.growLogs).map((week) => (
+                <div
+                  key={week}
+                  style={{
+                    marginBottom: '2rem',
+                    padding: '1rem',
+                    border: '1px solid #ccc',
+                    borderRadius: '8px'
+                  }}
+                >
+                  <h3>Week {week}</h3>
+                  <p>
+                    <strong>Grow Log:</strong> {user.growLogs[week]}
+                  </p>
 
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                  {user.uploadedImages?.[week]?.map((url, idx) => (
-                    <img
-                      key={idx}
-                      src={url}
-                      alt={`img-${idx}`}
-                      style={{ width: '200px', borderRadius: '8px' }}
-                    />
-                  ))}
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: '10px'
+                    }}
+                  >
+                    {user.uploadedImages?.[week]?.map((url, idx) => (
+                      <img
+                        key={idx}
+                        src={url}
+                        alt={`img-${idx}`}
+                        style={{ width: '200px', borderRadius: '8px' }}
+                      />
+                    ))}
+                  </div>
+
+                  <textarea
+                    placeholder="Judge notes..."
+                    rows={3}
+                    style={{ width: '100%', marginTop: '1rem' }}
+                    defaultValue={user.judgeNotes?.[week] || ''}
+                    onBlur={(e) =>
+                      handleNoteChange(user.id, week, e.target.value)
+                    }
+                  />
                 </div>
-
-                <textarea
-                  placeholder="Judge notes..."
-                  rows={3}
-                  style={{ width: '100%', marginTop: '1rem' }}
-                  defaultValue={user.judgeNotes?.[week] || ''}
-                  onBlur={(e) =>
-                    handleNoteChange(user.id, week, e.target.value)
-                  }
-                />
-              </div>
-            ))}
-        </div>
-      ))}
+              ))}
+          </div>
+        ))
+      )}
     </div>
   );
 }
