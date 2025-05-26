@@ -41,10 +41,7 @@ export default function Home() {
 
         const rolesRef = collection(db, 'roles');
         const snapshot = await getDocs(rolesRef);
-        const rolesList = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
+        const rolesList = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
         console.log('📦 Roles List:', rolesList);
 
         let userRole = rolesList.find((entry) => entry.id === currentUser.uid)?.role;
@@ -126,6 +123,13 @@ export default function Home() {
             >
               Judge Area
             </button>
+          )}
+
+          {role === 'contestant' && (
+            <>
+              <button onClick={() => router.push('/upload')}>Upload Week</button>
+              <button onClick={() => router.push('/my-gallery')}>My Gallery</button>
+            </>
           )}
         </>
       )}
